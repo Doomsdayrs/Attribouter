@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.annotation.XmlRes
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
+import com.bluelinelabs.conductor.Controller
 import com.bluelinelabs.conductor.Router
 import com.bluelinelabs.conductor.RouterTransaction
 import me.jfenn.attribouter.activities.AboutActivity
@@ -33,15 +34,10 @@ class Attribouter private constructor(private val context: Context) {
         context.startActivity(intent)
     }
 
-    /**
-     * Pushes via {@link Router}
-     * @param router [Router] Router to use
-     */
-    fun push(router: Router) {
+    fun toController(): Controller {
         val bundle = bundleOf(Pair(EXTRA_GITHUB_OAUTH_TOKEN, gitHubToken))
         fileRes?.let { bundle.putInt(EXTRA_FILE_RES, it) }
-        val controller = AboutController(bundle)
-        router.pushController(RouterTransaction.with(controller))
+        return AboutController(bundle)
     }
 
     fun toFragment(): Fragment {
