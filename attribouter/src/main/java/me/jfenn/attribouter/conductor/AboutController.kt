@@ -1,5 +1,6 @@
 package me.jfenn.attribouter.conductor
 
+import android.content.res.Resources
 import android.content.res.XmlResourceParser
 import android.os.Bundle
 import android.util.Log
@@ -19,55 +20,64 @@ import me.jfenn.attribouter.wedges.Wedge.OnRequestListener
 import org.xmlpull.v1.XmlPullParser
 import kotlin.collections.ArrayList
 
-class AboutController(bundle: Bundle?) : Controller(bundle), GitHubData.OnInitListener, OnRequestListener {
+class AboutController(bundle: Bundle) : Controller(bundle), GitHubData.OnInitListener, OnRequestListener {
     private var recycler: RecyclerView? = null
     private var adapter: InfoAdapter? = null
     private var infos: ArrayList<Wedge<*>> = ArrayList()
     private var requests: ArrayList<GitHubData> = ArrayList()
     private var gitHubToken: String? = null
+    private var fileRes: Int = -1
 
     init {
-        var fileRes = R.xml.attribouter
-        if (bundle != null) {
-            gitHubToken = bundle.getString(Attribouter.EXTRA_GITHUB_OAUTH_TOKEN, null)
-            fileRes = bundle.getInt(Attribouter.EXTRA_FILE_RES, fileRes)
-        }
-        val parser = resources!!.getXml(fileRes)
-        try {
-            while (parser.eventType != XmlPullParser.END_DOCUMENT) {
-                if (parser.eventType == XmlPullParser.START_TAG) {
-                    try {
-                        val classy = Class.forName(parser.name)
-                        val constructor = classy.getConstructor(XmlResourceParser::class.java)
-                        infos.add(constructor.newInstance(parser) as Wedge<*>)
-                        parser.next()
-                        continue
-                    } catch (e: Exception) {
-                        when (e) {
-                            is ClassNotFoundException -> Log.e("Attribouter", "Class name \"" + parser.name + "\" not found - you should probably check your configuration file for typos.")
-                            is NoSuchMethodException -> Log.e("Attribouter", "Class \"" + parser.name + "\" definitely exists, but doesn't have the correct constructor. Check that you have defined one with a single argument - \'android.content.res.XmlResourceParser\'")
-                            is ClassCastException -> Log.e("Attribouter", "Class \"" + parser.name + "\" has been instantiated correctly, but it must extend \'me.jfenn.attribouter.data.info.InfoData\' to be worthy of the great RecyclerView adapter.")
-                        }
-                        e.printStackTrace()
-                    }
-                    when (parser.name) {
-                        "appInfo" -> infos.add(AppWedge(parser))
-                        "contributors" -> infos.add(ContributorsWedge(parser))
-                        "translators" -> infos.add(TranslatorsWedge(parser))
-                        "licenses" -> infos.add(LicensesWedge(parser))
-                        "text" -> infos.add(TextWedge(parser))
-                    }
-                }
-                parser.next()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        parser.close()
+        gitHubToken = bundle.getString(Attribouter.EXTRA_GITHUB_OAUTH_TOKEN, null)
+        fileRes = bundle.getInt(Attribouter.EXTRA_FILE_RES, R.xml.attribouter)
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup): View {
         recycler = inflater.inflate(R.layout.fragment_attribouter_about, container, false) as RecyclerView
+
+        var parser: XmlResourceParser? = null
+        resources?.let {
+            try {
+                parser = it.getXml(fileRes)
+            } catch (e: Resources.NotFoundException) {
+                Log.wtf("Resource ERROR", e)
+            }
+        } ?: Log.wtf("Resource ERROR", "Resource was null")
+        val parserS = parser!!
+
+        try {
+            while (parserS.eventType != XmlPullParser.END_DOCUMENT) {
+                if (parserS.eventType == XmlPullParser.START_TAG) {
+                    try {
+                        val classy = Class.forName(parserS.name)
+                        val constructor = classy.getConstructor(XmlResourceParser::class.java)
+                        infos.add(constructor.newInstance(parserS) as Wedge<*>)
+                        parserS.next()
+                        continue
+                    } catch (e: Exception) {
+                        when (e) {
+                            is ClassNotFoundException -> Log.e("Attribouter", "Class name \"" + parserS.name + "\" not found - you should probably check your configuration file for typos.")
+                            is NoSuchMethodException -> Log.e("Attribouter", "Class \"" + parserS.name + "\" definitely exists, but doesn't have the correct constructor. Check that you have defined one with a single argument - \'android.content.res.XmlResourceParser\'")
+                            is ClassCastException -> Log.e("Attribouter", "Class \"" + parserS.name + "\" has been instantiated correctly, but it must extend \'me.jfenn.attribouter.data.info.InfoData\' to be worthy of the great RecyclerView adapter.")
+                        }
+                        e.printStackTrace()
+                    }
+                    when (parserS.name) {
+                        "appInfo" -> infos.add(AppWedge(parserS))
+                        "contributors" -> infos.add(ContributorsWedge(parserS))
+                        "translators" -> infos.add(TranslatorsWedge(parserS))
+                        "licenses" -> infos.add(LicensesWedge(parserS))
+                        "text" -> infos.add(TextWedge(parserS))
+                    }
+                }
+                parserS.next()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        parserS.close()
+
         infos = ArrayList()
         adapter = InfoAdapter(infos)
         recycler!!.layoutManager = LinearLayoutManager(applicationContext)
